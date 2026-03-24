@@ -1,14 +1,13 @@
 <script setup>
-import PublishPanel from './components/PublishPanel.vue'
-import FeedPanel from './components/FeedPanel.vue'
-import TopicSquare from './components/TopicSquare.vue'
+import LeftSidebar from './components/LeftSidebar.vue'
+import MainFeed from './components/MainFeed.vue'
+import RightSidebar from './components/RightSidebar.vue'
 </script>
 
 <template>
-  <main class="page">
-    <h1>轻量化校园版小红书</h1>
-    <PublishPanel />
-    <FeedPanel />
-    <TopicSquare />
-  </main>
+  <div class="layout">
+    <LeftSidebar />
+    <MainFeed />
+    <RightSidebar />
+  </div>
 </template>
