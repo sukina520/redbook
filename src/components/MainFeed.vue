@@ -1,128 +1,115 @@
 <script setup>
-import { computed, ref } from 'vue'
 import { useNotesStore } from '../stores/useNotesStore'
 
 const store = useNotesStore()
 
-const searchText = ref('codex')
-const typeTab = ref('all')
-const category = ref('综合')
-const openedNote = ref(null)
-
-const tabs = [
-  { key: 'all', label: '全部' },
-  { key: 'image', label: '图文' },
-  { key: 'video', label: '视频' },
+const feedModes = [
+  { key: 'recommend', label: '推荐' },
+  { key: 'hot', label: '校园热门' },
+  { key: 'latest', label: '最新' },
   { key: 'user', label: '用户' }
 ]
 
-const subCategories = ['综合', '使用教程', '免费额度', '安装包', '价格', '登录', '配置', '模型选择', '代码']
-
-const cardList = computed(() => {
-  if (typeTab.value === 'user') return []
-
-  return store.feedNotes
-    .filter((note) => (typeTab.value === 'all' ? true : note.type === typeTab.value))
-    .filter((note) => {
-      if (!searchText.value.trim()) return true
-      const keyword = searchText.value.trim().toLowerCase()
-      return `${note.title}${note.content}${note.tags.join('')}`.toLowerCase().includes(keyword)
-    })
-    .map((note) => ({
-      ...note,
-      cover: note.media[0],
-      commentsCount: note.comments.filter((item) => !item.deleted).length
-    }))
-})
-
-function openDetail(note) {
-  openedNote.value = note
+function openNote(noteId) {
+  store.openDetail(noteId)
 }
 
-function closeDetail() {
-  openedNote.value = null
-}
-
-function likeNote(noteId) {
+function toggleLike(noteId) {
   store.toggleLike(noteId)
-  if (openedNote.value?.id === noteId) {
-    openedNote.value = store.feedNotes.find((note) => note.id === noteId) || null
-  }
 }
 
-function formatCount(value) {
-  if (value >= 10000) return `${(value / 10000).toFixed(1)}w`
-  return String(value)
+function toggleFavorite(noteId) {
+  store.toggleFavorite(noteId)
 }
 </script>
 
 <template>
-  <main class="main-area">
-    <header class="top-header">
-      <div class="search-wrap">
-        <input v-model="searchText" type="text" placeholder="搜索内容" />
-        <span class="search-icon">⌕</span>
+  <section class="discover-page">
+    <header class="discover-hero">
+      <div>
+        <small class="eyebrow">校园轻社区</small>
+        <h1>把这周校园里值得说的事，都记下来。</h1>
+        <p>支持图文、短视频、话题参与和互动评论，首页会按你的兴趣持续更新。</p>
       </div>
-      <div class="header-links">
-        <a href="#">创作中心</a>
-        <a href="#">业务合作</a>
-      </div>
+      <button type="button" class="primary large" @click="store.switchView('publish')">马上发布</button>
     </header>
 
+    <section class="top-header">
+      <div class="search-wrap">
+        <input
+          :value="store.searchText"
+          type="text"
+          placeholder="搜索校园生活、话题或作者"
+          @input="store.setSearchText($event.target.value)"
+        />
+        <span class="search-icon">⌕</span>
+      </div>
+    </section>
+
     <section class="tabs-row primary">
-      <button v-for="tab in tabs" :key="tab.key" type="button" :class="{ active: typeTab === tab.key }" @click="typeTab = tab.key">
+      <button
+        v-for="tab in feedModes"
+        :key="tab.key"
+        type="button"
+        :class="{ active: store.feedMode === tab.key }"
+        @click="store.setFeedMode(tab.key)"
+      >
         {{ tab.label }}
       </button>
-      <span class="filter-link">筛选 ▾</span>
     </section>
 
     <section class="tabs-row secondary">
       <button
-        v-for="item in subCategories"
-        :key="item"
+        v-for="tag in ['全部', ...store.availableTags]"
+        :key="tag"
         type="button"
         class="chip"
-        :class="{ active: category === item }"
-        @click="category = item"
+        :class="{ active: store.activeTag === tag }"
+        @click="store.setActiveTag(tag)"
       >
-        {{ item }}
+        {{ tag }}
       </button>
     </section>
 
-    <section v-if="typeTab === 'user'" class="empty-users">
-      <h3>用户搜索结果</h3>
-      <p>当前关键词“{{ searchText }}”暂无用户示例数据。</p>
+    <section v-if="store.feedMode === 'user'" class="empty-users">
+      <h3>校园用户搜索暂未开放</h3>
+      <p>当前版本先支持内容搜索，后续会接入真实用户检索能力。</p>
     </section>
 
-    <section v-else class="masonry">
-      <article v-for="note in cardList" :key="note.id" class="water-card" @click="openDetail(note)">
+    <section v-else-if="store.feedNotes.length" class="masonry">
+      <article v-for="note in store.feedNotes" :key="note.id" class="water-card" @click="openNote(note.id)">
         <div class="cover-box">
           <img :src="note.cover" :alt="note.title" loading="lazy" />
           <span v-if="note.type === 'video'" class="video-tag">▶ 视频</span>
+          <span class="topic-badge">{{ note.topicName }}</span>
         </div>
         <div class="card-body">
           <h4>{{ note.title }}</h4>
+          <p class="card-copy">{{ note.content }}</p>
+          <div class="card-tags">
+            <span v-for="tag in note.tags" :key="tag">#{{ tag }}</span>
+          </div>
           <div class="author-row">
-            <span>{{ note.author }}</span>
-            <button type="button" class="like-btn" @click.stop="likeNote(note.id)">♡ {{ formatCount(note.likes) }}</button>
+            <div>
+              <strong>{{ note.author }}</strong>
+              <span>{{ note.displayTime }}</span>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="icon-btn" :class="{ active: note.isLiked }" @click.stop="toggleLike(note.id)">
+                ♡ {{ note.likes }}
+              </button>
+              <button type="button" class="icon-btn" :class="{ active: note.isFavorited }" @click.stop="toggleFavorite(note.id)">
+                ☆ {{ note.favorites }}
+              </button>
+            </div>
           </div>
         </div>
       </article>
     </section>
 
-    <div class="detail-mask" :class="{ show: !!openedNote }" @click.self="closeDetail">
-      <article v-if="openedNote" class="detail-modal">
-        <img :src="openedNote.cover || openedNote.media?.[0]" :alt="openedNote.title" />
-        <div class="detail-content">
-          <h3>{{ openedNote.title }}</h3>
-          <p>{{ openedNote.content }}</p>
-          <div class="detail-stats">
-            <span>♡ {{ formatCount(openedNote.likes) }}</span>
-            <span>💬 {{ formatCount(openedNote.commentsCount || 0) }}</span>
-          </div>
-          <button type="button" class="close-btn" @click="closeDetail">关闭</button>
-        </div>
-      </article>
-    </div>
-  </main>
+    <section v-else class="empty-users">
+      <h3>还没有匹配到内容</h3>
+      <p>换个关键词或者标签试试，或者先发布你的第一篇校园笔记。</p>
+    </section>
+  </section>
 </template>
